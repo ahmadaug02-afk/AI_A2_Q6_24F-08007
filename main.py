@@ -41,3 +41,25 @@ class Environment:
     def _init_endpoints(self):
         self.set_origin(self.matrix[0][0])
         self.set_target(self.matrix[self.height - 1][self.width - 1])
+
+        def set_origin(self, node: Node):
+        if self.origin_node: self.origin_node.state = FREE_SPACE
+        self.origin_node, node.state = node, ORIGIN
+
+    def set_target(self, node: Node):
+        if self.target_node: self.target_node.state = FREE_SPACE
+        self.target_node, node.state = node, TARGET
+
+    def force_obstacle(self, y, x):
+        n = self.fetch_node(y, x)
+        if n and n.state not in (ORIGIN, TARGET): n.state = OBSTACLE
+
+    def clear_obstacle(self, y, x):
+        n = self.fetch_node(y, x)
+        if n and n.state == OBSTACLE: n.state = FREE_SPACE
+
+    def randomize_terrain(self, wall_chance=0.30):
+        for row in self.matrix:
+            for n in row:
+                if n.state not in (ORIGIN, TARGET):
+                    n.state = OBSTACLE if random.random() < wall_chance else FREE_SPACE
