@@ -81,3 +81,22 @@ class Environment:
             chosen.state = OBSTACLE
             return chosen
         return None
+
+    def calc_manhattan(n1: Node, n2: Node): return abs(n1.y - n2.y) + abs(n1.x - n2.x)
+def calc_euclidean(n1: Node, n2: Node): return math.hypot(n1.y - n2.y, n1.x - n2.x)
+
+HEURISTIC_MAP = {"Manhattan": calc_manhattan, "Euclidean": calc_euclidean}
+
+class PathMetrics:
+    def __init__(self):
+        self.route, self.expanded_count = [], 0
+        self.total_expense, self.success = 0.0, False
+
+def _trace_route(target_node: Node):
+    route_list, curr = [], target_node
+    while curr:
+        route_list.append(curr)
+        curr = curr.came_from
+    route_list.reverse()
+    for n in route_list: n.is_route = True
+    return route_list
