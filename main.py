@@ -100,3 +100,35 @@ def _trace_route(target_node: Node):
     route_list.reverse()
     for n in route_list: n.is_route = True
     return route_list
+
+def exec_greedy(env: Environment, start_n: Node, goal_n: Node, h_type="Manhattan"):
+    h_fn = HEURISTIC_MAP[h_type]
+    stats = PathMetrics()
+    start_n.heur_h = start_n.score_f = h_fn(start_n, goal_n)
+    start_n.cost_g = 0
+
+    pq, seq = [], 0
+    heapq.heappush(pq, (start_n.heur_h, seq, start_n))
+    start_n.is_frontier = True
+    closed_set = set()
+
+    while pq:
+        _, _, curr = heapq.heappop(pq)
+        if curr.coords in closed_set: continue
+        closed_set.add(curr.coords)
+        curr.is_frontier, curr.is_explored = False, True
+        stats.expanded_count += 1
+
+        if curr is goal_n:
+            stats.success, stats.route, stats.total_expense = True, _trace_route(goal_n), goal_n.cost_g
+            return stats
+
+        for adj in env.get_adjacent(curr):
+            if adj.coords in closed_set: continue
+            tentative_g = curr.cost_g + 1
+            adj.heur_h = adj.score_f = h_fn(adj, goal_n)
+            if not adj.is_frontier or tentative_g < adj.cost_g:
+                adj.cost_g, adj.came_from, adj.is_frontier = tentative_g, curr, True
+                seq += 1
+                heapq.heappush(pq, (adj.heur_h, seq, adj))
+    return stats
