@@ -214,3 +214,38 @@ class Rover:
         self.planned_route, self.step_idx = [], 0
         self.is_active = self.has_arrived = self.needs_new_plan = False
         self.current_node = None
+
+        COLOR_BG, COLOR_GRID_LINE = (0, 43, 54), (7, 54, 66)
+COLOR_BLOCK, COLOR_START, COLOR_GOAL = (147, 161, 161), (133, 153, 0), (220, 50, 47)
+COLOR_FRONTIER, COLOR_EXPLORED = (203, 75, 22), (38, 139, 210)
+COLOR_ROUTE, COLOR_ROVER = (42, 161, 152), (211, 54, 130)
+
+UI_BG, UI_STROKE = (7, 54, 66), (88, 110, 117)
+TXT_MAIN, TXT_MUTED, TXT_HIGHLIGHT = (238, 232, 213), (147, 161, 161), (181, 137, 0)
+BTN_BASE, BTN_HOVER_C, BTN_ON = (0, 43, 54), (88, 110, 117), (38, 139, 210)
+
+SIDEBAR_WIDTH = 320
+SCREEN_W, SCREEN_H = 1200, 750
+TICK_RATE, ROVER_SPEED_MS = 30, 80
+OBSTACLE_TICK_MS, OBSTACLE_CHANCE = 600, 0.40
+GRID_ROWS, GRID_COLS = 20, 30
+
+class ClickableBtn:
+    def __init__(self, bounds, text, is_toggle=False):
+        self.box = pygame.Rect(bounds)
+        self.text, self.is_toggle = text, is_toggle
+        self.toggled_on = self.is_hovered = False
+
+    def render(self, surface, font_obj):
+        bg_col = BTN_ON if (self.is_toggle and self.toggled_on) else BTN_HOVER_C if self.is_hovered else BTN_BASE
+        pygame.draw.rect(surface, bg_col, self.box, border_radius=8)
+        pygame.draw.rect(surface, UI_STROKE, self.box, 2, border_radius=8)
+        t = font_obj.render(self.text, True, TXT_MAIN)
+        surface.blit(t, t.get_rect(center=self.box.center))
+
+    def process_input(self, e):
+        if e.type == pygame.MOUSEMOTION: self.is_hovered = self.box.collidepoint(e.pos)
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.box.collidepoint(e.pos):
+            if self.is_toggle: self.toggled_on = not self.toggled_on
+            return True
+        return False
