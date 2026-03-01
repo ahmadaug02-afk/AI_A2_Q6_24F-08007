@@ -63,3 +63,21 @@ class Environment:
             for n in row:
                 if n.state not in (ORIGIN, TARGET):
                     n.state = OBSTACLE if random.random() < wall_chance else FREE_SPACE
+
+                    def wipe_search_history(self):
+        for row in self.matrix:
+            for n in row: n.clear_search_data()
+
+    def factory_reset(self):
+        for row in self.matrix:
+            for n in row:
+                if n.state not in (ORIGIN, TARGET): n.state = FREE_SPACE
+                n.clear_search_data()
+
+    def spawn_dynamic_block(self):
+        open_spaces = [n for row in self.matrix for n in row if n.state == FREE_SPACE and not n.is_route]
+        if open_spaces:
+            chosen = random.choice(open_spaces)
+            chosen.state = OBSTACLE
+            return chosen
+        return None
