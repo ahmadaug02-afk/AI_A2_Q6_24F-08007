@@ -338,3 +338,66 @@ class ClickableBtn:
             self.rover.assign_route(out.route)
             self.last_move = pygame.time.get_ticks()
         else: self.msg = "NO VALID PATH."
+
+        def main_loop(self):
+        while True:
+            self.ticker.tick(TICK_RATE)
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT: sys.exit()
+                self.sel_algo.process_input(e); self.sel_heur.process_input(e)
+                if self.cmd_start.process_input(e): self._trigger_pathfind()
+                if self.cmd_clear.process_input(e): self.env.factory_reset(); self.rover.power_cycle()
+                if self.cmd_noise.process_input(e): self.env.randomize_terrain()
+                self.cmd_chaos.process_input(e)
+
+                if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                    gp = self._mouse_to_grid(*e.pos)
+                    if gp and (n := self.env.fetch_node(*gp)):
+                        self.erasing, self.drawing = (n.state == OBSTACLE), (n.state != OBSTACLE)
+                        if self.drawing: self.env.force_obstacle(*gp)
+                        else: self.env.clear_obstacle(*gp)
+                if e.type == pygame.MOUSEBUTTONUP and e.button == 1: self.drawing = self.erasing = False
+                if e.type == pygame.MOUSEMOTION and (self.drawing or self.erasing):
+                    gp = self._mouse_to_grid(*e.pos)
+                    if gp: self.env.force_obstacle(*gp) if self.drawing else self.env.clear_obstacle(*gp)
+
+            now = pygame.time.get_ticks()
+            if self.rover.is_active and now - self.last_move > ROVER_SPEED_MS:
+                self.last_move = now
+                if not self.rover.advance() and self.rover.check_replan_status():
+                    out = recalculate_route(self.env, self.rover.current_node, self.env.target_node, self.sel_algo.current_val, self.sel_heur.current_val)
+                    if out.success: self.rover.load_replan(out.route)
+                    else: self.rover.is_active = False
+
+            if self.cmd_chaos.toggled_on and self.rover.is_active and now - self.last_hazard > OBSTACLE_TICK_MS:
+                self.last_hazard = now
+                if random.random() < OBSTACLE_CHANCE: self.env.spawn_dynamic_block()
+
+            W, H = self.display.get_size()
+            self.display.fill(COLOR_BG)
+            for row in self.env.matrix:
+                for n in row:
+                    rect = self._get_node_rect(n)
+                    pygame.draw.rect(self.display, COLOR_GRID_LINE, rect, 1, border_radius=4)
+                    if n.state == OBSTACLE: pygame.draw.rect(self.display, COLOR_BLOCK, rect, border_radius=8)
+                    elif n.state == ORIGIN: pygame.draw.rect(self.display, COLOR_START, rect, border_radius=12)
+                    elif n.state == TARGET: pygame.draw.rect(self.display, COLOR_GOAL, rect, border_radius=12)
+                    elif n.is_route: pygame.draw.rect(self.display, COLOR_ROUTE, rect, border_radius=4)
+                    elif n.is_explored: pygame.draw.circle(self.display, COLOR_EXPLORED, rect.center, min(rect.width, rect.height)//4)
+                    elif n.is_frontier: pygame.draw.circle(self.display, COLOR_FRONTIER, rect.center, min(rect.width, rect.height)//6)
+
+            if self.rover.current_node:
+                r_rect = self._get_node_rect(self.rover.current_node)
+                pygame.draw.circle(self.display, COLOR_ROVER, r_rect.center, min(r_rect.width, r_rect.height)//2.5)
+
+            pygame.draw.rect(self.display, UI_BG, (0, 0, SIDEBAR_WIDTH, H))
+            self.sel_algo.render(self.display, self.f_norm, self.f_tiny)
+            self.sel_heur.render(self.display, self.f_norm, self.f_tiny)
+            for cmd in (self.cmd_start, self.cmd_clear, self.cmd_noise, self.cmd_chaos): cmd.render(self.display, self.f_norm)
+
+            yp = H - 165
+            for k, v in self.dash.items():
+                self.display.blit(self.f_tiny.render(f"{k}: {v}", True, TXT_MAIN), (25, yp)); yp += 20
+            pygame.display.flip()
+
+if __name__ == "__main__": PathfinderVisualizer().main_loop()
