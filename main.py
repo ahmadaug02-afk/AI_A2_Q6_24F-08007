@@ -166,3 +166,12 @@ def exec_astar(env: Environment, start_n: Node, goal_n: Node, h_type="Manhattan"
                 seq += 1
                 heapq.heappush(pq, (adj.score_f, seq, adj))
     return stats
+
+def dispatch_search(env: Environment, algo: str, heur: str):
+    if algo == "A* Search": return exec_astar(env, env.origin_node, env.target_node, heur)
+    return exec_greedy(env, env.origin_node, env.target_node, heur)
+
+def recalculate_route(env: Environment, current: Node, target: Node, algo: str, heur: str):
+    env.wipe_search_history()
+    if algo == "A* Search": return exec_astar(env, current, target, heur)
+    return exec_greedy(env, current, target, heur)
