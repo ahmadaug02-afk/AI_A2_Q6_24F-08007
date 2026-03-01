@@ -249,3 +249,92 @@ class ClickableBtn:
             if self.is_toggle: self.toggled_on = not self.toggled_on
             return True
         return False
+
+    class SelectBox:
+    def __init__(self, bounds, choices, title=""):
+        self.box, self.choices, self.title = pygame.Rect(bounds), choices, title
+        self.selected_idx, self.is_expanded = 0, False
+
+    @property
+    def current_val(self): return self.choices[self.selected_idx]
+
+    def render(self, surface, font_main, font_small):
+        if self.title:
+            lbl = font_small.render(self.title, True, TXT_MUTED)
+            surface.blit(lbl, (self.box.x, self.box.y - 20))
+        pygame.draw.rect(surface, BTN_BASE, self.box, border_radius=8)
+        pygame.draw.rect(surface, UI_STROKE, self.box, 2, border_radius=8)
+        t = font_main.render(self.current_val, True, TXT_MAIN)
+        surface.blit(t, t.get_rect(midleft=(self.box.x + 15, self.box.centery)))
+
+        if self.is_expanded:
+            for idx, item in enumerate(self.choices):
+                dr = pygame.Rect(self.box.x, self.box.bottom + idx * self.box.height, self.box.width, self.box.height)
+                fc = BTN_ON if idx == self.selected_idx else BTN_HOVER_C
+                pygame.draw.rect(surface, fc, dr, border_radius=6)
+                pygame.draw.rect(surface, UI_STROKE, dr, 2, border_radius=6)
+                ot = font_main.render(item, True, TXT_MAIN)
+                surface.blit(ot, ot.get_rect(midleft=(dr.x + 15, dr.centery)))
+
+    def process_input(self, e):
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            if self.box.collidepoint(e.pos):
+                self.is_expanded = not self.is_expanded
+                return False
+            if self.is_expanded:
+                for idx in range(len(self.choices)):
+                    dr = pygame.Rect(self.box.x, self.box.bottom + idx * self.box.height, self.box.width, self.box.height)
+                    if dr.collidepoint(e.pos):
+                        self.is_expanded, self.selected_idx = False, idx
+                        return True
+                self.is_expanded = False
+        return False
+
+    class PathfinderVisualizer:
+    def __init__(self):
+        pygame.init()
+        pygame.display.set_caption("Informed Pathfinder Engine")
+        self.display = pygame.display.set_mode((SCREEN_W, SCREEN_H), pygame.RESIZABLE)
+        self.ticker = pygame.time.Clock()
+        self.env, self.rover = Environment(GRID_ROWS, GRID_COLS), Rover()
+        self.f_bold = pygame.font.SysFont("Courier New", 18, bold=True)
+        self.f_norm = pygame.font.SysFont("Courier New", 14, bold=True)
+        self.f_tiny = pygame.font.SysFont("Courier New", 12)
+
+        sx, yo, bw = 25, 80, SIDEBAR_WIDTH - 50
+        self.sel_algo = SelectBox((sx, yo, bw, 40), ["A* Search", "Greedy BFS"], "Search Strategy"); yo += 80
+        self.sel_heur = SelectBox((sx, yo, bw, 40), ["Manhattan", "Euclidean"], "Distance Metric"); yo += 80
+        self.cmd_start = ClickableBtn((sx, yo, bw, 45), "Execute Search"); yo += 60
+        self.cmd_clear = ClickableBtn((sx, yo, bw, 45), "Reset Canvas"); yo += 60
+        self.cmd_noise = ClickableBtn((sx, yo, bw, 45), "Generate Terrain"); yo += 60
+        self.cmd_chaos = ClickableBtn((sx, yo, bw, 45), "Dynamic Obstacles", is_toggle=True)
+
+        self.dash = {"Nodes": 0, "Cost": 0, "Time (ms)": 0}
+        self.msg = "AWAITING PARAMETERS..."
+        self.drawing = self.erasing = False
+        self.last_move = self.last_hazard = 0
+
+    def _get_node_rect(self, n: Node):
+        nw, nh = (self.display.get_width() - SIDEBAR_WIDTH) // self.env.width, self.display.get_height() // self.env.height
+        pad = 3
+        return pygame.Rect(n.x * nw + SIDEBAR_WIDTH + pad, n.y * nh + pad, nw - pad*2, nh - pad*2)
+
+    def _mouse_to_grid(self, mx, my):
+        ax = mx - SIDEBAR_WIDTH
+        if ax < 0 or ax >= self.display.get_width() - SIDEBAR_WIDTH: return None
+        nw, nh = (self.display.get_width() - SIDEBAR_WIDTH) // self.env.width, self.display.get_height() // self.env.height
+        gy, gx = my // nh, ax // nw
+        return (gy, gx) if 0 <= gy < self.env.height and 0 <= gx < self.env.width else None
+
+    def _trigger_pathfind(self):
+        if not self.env.origin_node or not self.env.target_node: return
+        self.env.wipe_search_history()
+        t0 = time.perf_counter()
+        out = dispatch_search(self.env, self.sel_algo.current_val, self.sel_heur.current_val)
+        self.dash = {"Nodes": out.expanded_count, "Cost": round(out.total_expense, 2), "Time (ms)": round((time.perf_counter()-t0)*1000, 2)}
+        if out.success:
+            self.msg = f"PATH FOUND. COST: {out.total_expense}"
+            self.rover.power_cycle()
+            self.rover.assign_route(out.route)
+            self.last_move = pygame.time.get_ticks()
+        else: self.msg = "NO VALID PATH."
