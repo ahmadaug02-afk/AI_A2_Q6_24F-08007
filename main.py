@@ -199,3 +199,18 @@ class Rover:
             return False
         self.step_idx, self.current_node = nxt, self.planned_route[nxt]
         return True
+
+    def check_replan_status(self): return self.needs_new_plan
+
+    def load_replan(self, fresh_route):
+        self.planned_route, self.step_idx = fresh_route, 0
+        self.needs_new_plan, self.is_active = False, bool(fresh_route)
+        if fresh_route: self.current_node = fresh_route[0]
+
+    def detect_blockage(self):
+        return any(n.state == OBSTACLE for n in self.planned_route[self.step_idx + 1:])
+
+    def power_cycle(self):
+        self.planned_route, self.step_idx = [], 0
+        self.is_active = self.has_arrived = self.needs_new_plan = False
+        self.current_node = None
