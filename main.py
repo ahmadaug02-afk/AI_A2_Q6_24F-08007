@@ -175,3 +175,27 @@ def recalculate_route(env: Environment, current: Node, target: Node, algo: str, 
     env.wipe_search_history()
     if algo == "A* Search": return exec_astar(env, current, target, heur)
     return exec_greedy(env, current, target, heur)
+
+class Rover:
+    def __init__(self):
+        self.current_node = None
+        self.planned_route = []
+        self.step_idx = 0
+        self.is_active = self.has_arrived = self.needs_new_plan = False
+
+    def assign_route(self, route):
+        self.planned_route, self.step_idx = route, 0
+        self.is_active, self.has_arrived = bool(route), False
+        if route: self.current_node = route[0]
+
+    def advance(self):
+        if not self.is_active or not self.planned_route: return False
+        nxt = self.step_idx + 1
+        if nxt >= len(self.planned_route):
+            self.is_active, self.has_arrived = False, True
+            return False
+        if self.planned_route[nxt].state == OBSTACLE:
+            self.is_active, self.needs_new_plan = False, True
+            return False
+        self.step_idx, self.current_node = nxt, self.planned_route[nxt]
+        return True
